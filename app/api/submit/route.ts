@@ -1,0 +1,2 @@
+import { NextRequest, NextResponse } from "next/server"; import { createRecord } from "@/lib/mockDb";
+export async function POST(request:NextRequest){const {draft,citizenName}=await request.json();if(!draft?.fullText||!draft?.location||!draft?.department||!draft?.desiredOutcome)return NextResponse.json({error:"Complete the issue, location, department, and desired outcome before submitting."},{status:400});const record=createRecord(draft,citizenName);return NextResponse.json({registrationId:record.id,slaDeadline:record.slaDeadline});}
