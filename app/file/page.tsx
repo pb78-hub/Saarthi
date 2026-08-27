@@ -8,7 +8,15 @@ import {
 } from "@/types/grievance";
 import { HealthScoreSeal } from "@/components/HealthScoreSeal";
 
-const API_URL = "http://127.0.0.1:8000";
+// ============================================================
+// BACKEND API
+// Uses Vercel environment variable in production.
+// Falls back to your deployed Render backend.
+// ============================================================
+
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  "https://saarthi-agent.onrender.com";
 
 // ============================================================
 // EMPTY DRAFT
@@ -22,7 +30,6 @@ const blank: GrievanceDraft = {
   dateOrTimeframe: null,
   desiredOutcome: null,
 };
-
 
 // ============================================================
 // HEALTH SCORE FIELDS
@@ -47,27 +54,22 @@ function captured(draft: GrievanceDraft): HealthField[] {
     fields.push("dateOrTimeframe");
   }
 
-  if (
-    draft.fullText &&
-    draft.fullText.length > 100
-  ) {
+  if (draft.desiredOutcome) {
+    fields.push("desiredOutcome");
+  }
+
+  if (draft.fullText && draft.fullText.length > 100) {
     fields.push("supportingDetail");
   }
 
   return fields;
 }
 
-
 // ============================================================
 // PAGE
 // ============================================================
 
 export default function FilePage() {
-
-  // ----------------------------------------------------------
-  // CHAT HISTORY
-  // ----------------------------------------------------------
-
   const [history, setHistory] = useState<ChatTurn[]>([
     {
       role: "assistant",
@@ -76,13 +78,7 @@ export default function FilePage() {
     },
   ]);
 
-
-  // ----------------------------------------------------------
-  // STATE
-  // ----------------------------------------------------------
-
   const [text, setText] = useState("");
-
   const [draft, setDraft] =
     useState<GrievanceDraft>(blank);
 
@@ -104,17 +100,7 @@ export default function FilePage() {
   const [authority, setAuthority] =
     useState<string | null>(null);
 
-
-  // ----------------------------------------------------------
-  // HEALTH
-  // ----------------------------------------------------------
-
   const health = captured(draft);
-
-
-  // ----------------------------------------------------------
-  // READY FOR SUBMISSION
-  // ----------------------------------------------------------
 
   const ready = Boolean(
     readinessScore >= 90 &&
@@ -123,26 +109,18 @@ export default function FilePage() {
     !registration
   );
 
-
   // ==========================================================
   // SEND CHAT MESSAGE
   // ==========================================================
 
-  const send = async (
-    event: FormEvent
-  ) => {
-
+  const send = async (event: FormEvent) => {
     event.preventDefault();
 
-    if (!text.trim() || loading) {
+    if (!text.trim() || loading || registration) {
       return;
     }
 
-
     const userMessage = text.trim();
-
-
-    // Add user message immediately
 
     setHistory((previous) => [
       ...previous,
@@ -152,27 +130,18 @@ export default function FilePage() {
       },
     ]);
 
-
     setText("");
     setLoading(true);
     setError("");
 
-
     try {
-
-      // ------------------------------------------------------
-      // CALL FASTAPI BACKEND
-      // ------------------------------------------------------
-
       const response = await fetch(
         `${API_URL}/api/saarthi`,
         {
           method: "POST",
-
           headers: {
             "Content-Type": "application/json",
           },
-
           body: JSON.stringify({
             session_id: sessionId,
             message: userMessage,
@@ -181,57 +150,35 @@ export default function FilePage() {
         }
       );
 
-
       if (!response.ok) {
-
-        const errorData =
-          await response.json()
-            .catch(() => null);
+        const errorData = await response
+          .json()
+          .catch(() => null);
 
         throw new Error(
           errorData?.detail ||
-          "Backend request failed"
+          `Backend request failed (${response.status})`
         );
       }
 
+      const data = await response.json();
 
-      const data =
-        await response.json();
-
-
-      // ------------------------------------------------------
-      // SAVE SESSION
-      // ------------------------------------------------------
-
+      // Save session
       if (data.session_id) {
-        setSessionId(
-          data.session_id
-        );
+        setSessionId(data.session_id);
       }
 
-
-      // ------------------------------------------------------
-      // SAVE READINESS SCORE
-      // ------------------------------------------------------
-
+      // Save readiness score
       setReadinessScore(
         data.readiness_score || 0
       );
 
-
-      // ------------------------------------------------------
-      // SAVE AUTHORITY
-      // ------------------------------------------------------
-
+      // Save authority
       setAuthority(
         data.concerned_authority || null
       );
 
-
-      // ------------------------------------------------------
-      // UPDATE CASE FILE
-      // ------------------------------------------------------
-
+      // Update case file
       setDraft({
         summary:
           data.summary || null,
@@ -254,25 +201,18 @@ export default function FilePage() {
           null,
 
         desiredOutcome:
+          data.collected_information?.desired_outcome ||
           null,
       });
 
-
-      // ------------------------------------------------------
-      // SHOW BACKEND RESPONSE
-      // IMPORTANT:
-      // Backend sometimes returns next_question
-      // and when ready returns next_action
-      // ------------------------------------------------------
-
+      // Show AI response
       const assistantMessage =
         data.next_question ||
         data.next_action ||
+        data.message ||
         null;
 
-
       if (assistantMessage) {
-
         setHistory((previous) => [
           ...previous,
           {
@@ -280,19 +220,14 @@ export default function FilePage() {
             content: assistantMessage,
           },
         ]);
-
       }
 
-
     } catch (err) {
-
-      console.error(err);
-
+      console.error("Saarthi API error:", err);
 
       setError(
-        "Saarthi server se connect nahi ho pa raha. Please check karein ki backend running hai."
+        "Saarthi server se connect nahi ho pa raha. Kripya thodi der baad dobara try karein."
       );
-
 
       setHistory((previous) => [
         ...previous,
@@ -302,22 +237,16 @@ export default function FilePage() {
             "Maaf kijiye, abhi Saarthi server se connection nahi ho pa raha. Kripya backend check karke dobara try karein.",
         },
       ]);
-
     } finally {
-
       setLoading(false);
-
     }
-
   };
-
 
   // ==========================================================
   // SUBMIT GRIEVANCE
   // ==========================================================
 
   const submit = async () => {
-
     if (
       !sessionId ||
       loading ||
@@ -326,34 +255,27 @@ export default function FilePage() {
       return;
     }
 
-
     setLoading(true);
     setError("");
 
-
     try {
-
       const response = await fetch(
         `${API_URL}/api/saarthi/submit`,
         {
           method: "POST",
-
           headers: {
             "Content-Type": "application/json",
           },
-
           body: JSON.stringify({
             session_id: sessionId,
           }),
         }
       );
 
-
       if (!response.ok) {
-
-        const errorData =
-          await response.json()
-            .catch(() => null);
+        const errorData = await response
+          .json()
+          .catch(() => null);
 
         throw new Error(
           errorData?.detail ||
@@ -361,42 +283,24 @@ export default function FilePage() {
         );
       }
 
+      const data = await response.json();
 
-      const data =
-        await response.json();
-
-
-      // ------------------------------------------------------
-      // SAVE TRACKING ID
-      // ------------------------------------------------------
-
+      // Save tracking ID
       setRegistration(
         data.grievance_id
       );
 
-
-      // ------------------------------------------------------
-      // UPDATE AUTHORITY
-      // ------------------------------------------------------
-
+      // Update authority if returned
       if (data.concerned_authority) {
-
         setAuthority(
           data.concerned_authority
         );
-
       }
-
-
-      // ------------------------------------------------------
-      // SHOW SUCCESS MESSAGE
-      // ------------------------------------------------------
 
       const successMessage =
         data.message ||
         data.status_message ||
         `Aapki grievance successfully submit ho gayi hai. Aapka Tracking ID hai: ${data.grievance_id}`;
-
 
       setHistory((previous) => [
         ...previous,
@@ -407,151 +311,101 @@ export default function FilePage() {
         },
       ]);
 
-
     } catch (err) {
-
-      console.error(err);
-
+      console.error("Submit error:", err);
 
       setError(
         "Grievance submit nahi ho paayi. Kripya dobara try karein."
       );
-
     } finally {
-
       setLoading(false);
-
     }
-
   };
-
 
   // ==========================================================
   // UI
   // ==========================================================
 
   return (
-
     <section className="file-layout">
 
-
-      {/* ====================================================
-          LEFT SIDE — CHAT
-      ==================================================== */}
+      {/* LEFT SIDE — CHAT */}
 
       <div className="chat-panel">
 
-
-        {/* HEADER */}
-
         <div>
-
           <p className="eyebrow">
             Saarthi AI · Citizen Grievance Assistant
           </p>
 
-
           <h1 className="chat-heading">
             What needs fixing?
           </h1>
-
 
           <p className="chat-intro">
             Describe your problem in Hindi, English, or Hinglish.
             Saarthi will ask you for the required information
             step by step.
           </p>
-
         </div>
 
-
-        {/* ==================================================
-            CHAT MESSAGES
-        ================================================== */}
+        {/* CHAT MESSAGES */}
 
         <div
           className="messages"
           aria-live="polite"
         >
-
-          {history.map(
-            (turn, index) => (
-
-              <div
-                className={`bubble ${turn.role}`}
-                key={index}
-              >
-                {turn.content}
-              </div>
-
-            )
-          )}
-
+          {history.map((turn, index) => (
+            <div
+              className={`bubble ${turn.role}`}
+              key={index}
+            >
+              {turn.content}
+            </div>
+          ))}
 
           {loading && (
-
             <div className="bubble assistant">
               Saarthi is thinking...
             </div>
-
           )}
-
         </div>
 
-
-        {/* ==================================================
-            CHAT INPUT
-        ================================================== */}
+        {/* CHAT INPUT */}
 
         <form
           className="message-form"
           onSubmit={send}
         >
-
           <input
             value={text}
-
             onChange={(event) =>
               setText(event.target.value)
             }
-
             placeholder="Example: Mere yahan 5 din se kachra collect nahi hua"
-
             aria-label="Describe your grievance"
-
             disabled={
               loading ||
               Boolean(registration)
             }
           />
 
-
           <button
             className="button"
             type="submit"
-
             disabled={
               loading ||
               !text.trim() ||
               Boolean(registration)
             }
           >
-
             {loading
               ? "Please wait..."
               : "Continue"}
-
           </button>
-
         </form>
 
-
-        {/* ==================================================
-            ERROR
-        ================================================== */}
-
         {error && (
-
           <p
             style={{
               marginTop: "10px",
@@ -559,37 +413,25 @@ export default function FilePage() {
           >
             {error}
           </p>
-
         )}
-
 
       </div>
 
-
-      {/* ====================================================
-          RIGHT SIDE — CASE FILE
-      ==================================================== */}
+      {/* RIGHT SIDE — CASE FILE */}
 
       <aside className="draft-panel">
-
-
-        {/* HEADER */}
 
         <div className="draft-header">
 
           <div>
-
             <p className="eyebrow">
               Your case file · not sent yet
             </p>
 
-
             <h2 className="draft-title">
               Check before you submit.
             </h2>
-
           </div>
-
 
           <HealthScoreSeal
             captured={health}
@@ -597,32 +439,22 @@ export default function FilePage() {
 
         </div>
 
-
-        {/* ==================================================
-            READINESS SCORE
-        ================================================== */}
+        {/* READINESS SCORE */}
 
         <p
           style={{
             marginBottom: "15px",
           }}
         >
-
           Complaint readiness:{" "}
-
           <strong>
             {readinessScore}%
           </strong>
-
         </p>
 
-
-        {/* ==================================================
-            CASE DETAILS
-        ================================================== */}
+        {/* CASE DETAILS */}
 
         <dl className="draft-fields">
-
 
           {[
             [
@@ -647,48 +479,43 @@ export default function FilePage() {
             ],
 
             [
+              "What you need",
+              draft.desiredOutcome,
+            ],
+
+            [
               "Draft grievance",
               draft.fullText,
             ],
 
-          ].map(
-            ([label, value]) => (
+          ].map(([label, value]) => (
 
-              <div
-                className="draft-field"
-                key={label as string}
+            <div
+              className="draft-field"
+              key={label as string}
+            >
+              <dt>
+                {label}
+              </dt>
+
+              <dd
+                className={
+                  value
+                    ? ""
+                    : "empty"
+                }
               >
+                {value ||
+                  "Saarthi will collect this information."}
+              </dd>
 
-                <dt>
-                  {label}
-                </dt>
+            </div>
 
-
-                <dd
-                  className={
-                    value
-                      ? ""
-                      : "empty"
-                  }
-                >
-
-                  {value ||
-                    "Saarthi will collect this information."}
-
-                </dd>
-
-              </div>
-
-            )
-          )}
-
+          ))}
 
         </dl>
 
-
-        {/* ==================================================
-            SUBMISSION SUCCESS
-        ================================================== */}
+        {/* SUBMISSION SUCCESS */}
 
         {registration ? (
 
@@ -698,17 +525,14 @@ export default function FilePage() {
               Grievance submitted successfully
             </strong>
 
-
             <p>
               Aapki complaint successfully submit ho gayi hai.
               Is Tracking ID ko save kar lijiye.
             </p>
 
-
             <p className="mono">
               {registration}
             </p>
-
 
             <p className="confirmation-note">
               This is a demo record created by the Saarthi
@@ -720,52 +544,34 @@ export default function FilePage() {
 
         ) : (
 
-          /* ================================================
-              SUBMIT BUTTON
-          ================================================ */
-
           <div className="submit-area">
-
 
             <button
               className="button ready"
-
               type="button"
-
               disabled={
                 !ready ||
                 loading
               }
-
               onClick={submit}
             >
-
               {loading
                 ? "Please wait..."
                 : "Submit grievance"}
-
             </button>
 
-
             <p className="submit-hint">
-
               {ready
                 ? "Your grievance is ready for submission."
                 : "Saarthi will enable submission when your complaint is ready."}
-
             </p>
-
 
           </div>
 
         )}
 
-
       </aside>
 
-
     </section>
-
   );
-
 }
