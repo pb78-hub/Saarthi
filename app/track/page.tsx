@@ -1,10 +1,244 @@
 "use client";
+
 import { FormEvent, useState } from "react";
-type RecordResult = { id: string; status: string; statusNote: string; filedOn: string; slaDeadline: string; daysLeft: number; draft: { department: string; location: string } };
-const date = (value: string) => new Date(value).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
+
+type TrackResult = {
+  grievance_id: string;
+  status: string;
+  status_message: string;
+  problem_type?: string | null;
+  problem_display?: string | null;
+  location?: string | null;
+  duration?: string | null;
+  concerned_authority?: string | null;
+  tracking_link?: string | null;
+  next_action?: string | null;
+};
+
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  "https://saarthi-agent.onrender.com";
+
 export default function TrackPage() {
-  const [id, setId] = useState(""); const [result, setResult] = useState<RecordResult | null>(null); const [error, setError] = useState("");
-  const lookup = async (event: FormEvent) => { event.preventDefault(); setError(""); setResult(null); const response = await fetch(`/api/track/${encodeURIComponent(id)}`); const data = await response.json(); if (!response.ok) { setError(data.error); return; } setResult(data); };
-  const statusHeadline = (record: RecordResult) => record.status === "Disposed" ? "This grievance has been closed." : record.daysLeft === 0 ? "The standard response window has passed." : `There are ${record.daysLeft} days left in the standard response window.`;
-  return <section className="page"><div className="track-wrap"><p className="eyebrow">Already have a registration number?</p><h1 className="page-title">See what is happening with your grievance.</h1><p className="subhead">Enter the number you received when your grievance was acknowledged. In this prototype, that is all you need — no password or captcha.</p><form className="track-form" onSubmit={lookup}><input value={id} onChange={event => setId(event.target.value)} placeholder="SAA/2026/DEMO01" aria-label="Registration number"/><button className="button" type="submit">Check status</button></form><p className="demo-hint">Try a demo record: <button type="button" onClick={() => setId("SAA/2026/DEMO01")}>water supply</button> or <button type="button" onClick={() => setId("SAA/2026/DEMO02")}>train refund</button>.</p>{error && <p className="error">{error}</p>}{result && <article className="result" aria-live="polite"><p className="status-chip">{result.status}</p><h2 className="result-status">{statusHeadline(result)}</h2><div className="status-explainer"><p className="eyebrow">What this means</p><p>{result.statusNote}</p></div><dl><dt>Registration number</dt><dd className="mono">{result.id}</dd><dt>Sent to</dt><dd>{result.draft.department}</dd><dt>Filed</dt><dd>{date(result.filedOn)}</dd><dt>Expected response</dt><dd>{result.status === "Disposed" ? "This grievance has been resolved." : `By ${date(result.slaDeadline)}. If it takes longer, the department should send an interim reply explaining the delay.`}</dd></dl></article>}</div></section>;
+  const [id, setId] = useState("");
+  const [result, setResult] = useState<TrackResult | null>(null);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const lookup = async (event: FormEvent) => {
+    event.preventDefault();
+
+    const trackingId = id.trim();
+
+    if (!trackingId) {
+      setError("Please enter your Tracking ID.");
+      setResult(null);
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    setResult(null);
+
+    try {
+      const response = await fetch(
+        `${API_URL}/api/saarthi/track`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            grievance_id: trackingId,
+          }),
+        }
+      );
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(
+          data?.detail ||
+            "Couldn't find that grievance. Check the Tracking ID and try again."
+        );
+      }
+
+      setResult(data);
+    } catch (err) {
+      console.error("Tracking error:", err);
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Couldn't find that grievance. Check the Tracking ID and try again."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const statusHeadline = (status: string) => {
+    switch (status) {
+      case "Submitted":
+        return "Your grievance has been submitted.";
+
+      case "Under Review":
+        return "Your grievance is being reviewed.";
+
+      case "Action Initiated":
+        return "Action has been initiated on your grievance.";
+
+      case "Resolved":
+        return "Your grievance has been resolved.";
+
+      default:
+        return "Your grievance status is available.";
+    }
+  };
+
+  return (
+    <section className="page">
+      <div className="track-wrap">
+        <p className="eyebrow">
+          Already have a Tracking ID?
+        </p>
+
+        <h1 className="page-title">
+          See what is happening with your grievance.
+        </h1>
+
+        <p className="subhead">
+          Enter the Tracking ID you received when your
+          grievance was submitted. No password or captcha
+          is required for this prototype.
+        </p>
+
+        <form
+          className="track-form"
+          onSubmit={lookup}
+        >
+          <input
+            value={id}
+            onChange={(event) =>
+              setId(event.target.value)
+            }
+            placeholder="SAARTHI-123456"
+            aria-label="Tracking ID"
+            autoComplete="off"
+          />
+
+          <button
+            className="button"
+            type="submit"
+            disabled={loading}
+          >
+            {loading
+              ? "Checking..."
+              : "Check status"}
+          </button>
+        </form>
+
+        <p className="demo-hint">
+          Enter the new Tracking ID generated by
+          Saarthi, for example:
+          {" "}
+          <span className="mono">
+            SAARTHI-123456
+          </span>
+        </p>
+
+        {error && (
+          <p className="error">
+            {error}
+          </p>
+        )}
+
+        {result && (
+          <article
+            className="result"
+            aria-live="polite"
+          >
+            <p className="status-chip">
+              {result.status}
+            </p>
+
+            <h2 className="result-status">
+              {statusHeadline(result.status)}
+            </h2>
+
+            <div className="status-explainer">
+              <p className="eyebrow">
+                What this means
+              </p>
+
+              <p>
+                {result.status_message}
+              </p>
+
+              {result.next_action && (
+                <p>
+                  {result.next_action}
+                </p>
+              )}
+            </div>
+
+            <dl>
+              <dt>
+                Tracking ID
+              </dt>
+
+              <dd className="mono">
+                {result.grievance_id}
+              </dd>
+
+              <dt>
+                Problem
+              </dt>
+
+              <dd>
+                {result.problem_display ||
+                  result.problem_type ||
+                  "Not available"}
+              </dd>
+
+              <dt>
+                Location
+              </dt>
+
+              <dd>
+                {result.location ||
+                  "Not provided"}
+              </dd>
+
+              <dt>
+                Duration
+              </dt>
+
+              <dd>
+                {result.duration ||
+                  "Not provided"}
+              </dd>
+
+              <dt>
+                Sent to
+              </dt>
+
+              <dd>
+                {result.concerned_authority ||
+                  "Concerned Government Department"}
+              </dd>
+
+              <dt>
+                Current status
+              </dt>
+
+              <dd>
+                {result.status}
+              </dd>
+            </dl>
+          </article>
+        )}
+      </div>
+    </section>
+  );
 }
