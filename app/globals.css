@@ -92,8 +92,35 @@ body { font-family: var(--font-body); }
 .bubble { max-width: 83%; padding: 12px 14px; font-size: .94rem; line-height: 1.5; }
 .bubble.assistant { align-self: flex-start; border: 1px solid var(--line); background: #fff; }
 .bubble.user { align-self: flex-end; background: var(--blue); color: var(--paper); }
-.message-form { display: flex; gap: 8px; }
-.message-form input, .track-form input { min-width: 0; flex: 1; border: 1px solid var(--line); padding: 12px; background: #fff; font: 400 .92rem var(--font-body); }
+.track-form input {
+  min-width: 0;
+  flex: 1;
+  border: 1px solid var(--line);
+  padding: 12px;
+  background: #fff;
+  font: 400 .92rem var(--font-body);
+}
+.message-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  border: 2px solid var(--blue);
+  border-left-width: 5px;
+  background: #eef2f7;
+  padding: 20px;
+} 
+.message-form input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  padding: 8px 4px;
+  background: transparent;
+  font: 400 1.05rem var(--font-body);
+  line-height: 1.5;
+}
+.message-form input:focus {
+  outline: none;
+}
 .draft-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 15px; }
 .draft-title { margin: 0; font: 500 1.65rem var(--font-display); }
 .seal { position: relative; width: 112px; height: 112px; flex: none; }
