@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap");
 
 :root {
   --paper: #fafaf8;
@@ -8,7 +8,7 @@
   --blue: #2b4570;
   --ready: #3e7c59;
   --pending: #b8863b;
-  --font-body: Inter, Arial, sans-serif;
+  --font-body: Plus Jakarta Sans, Inter , Arial, sans-serif;
   --font-display: "Space Grotesk", Arial, sans-serif;
   --font-mono: "JetBrains Mono", Consolas, monospace;
 }
