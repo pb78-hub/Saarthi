@@ -8,12 +8,6 @@ import {
 } from "@/types/grievance";
 import { HealthScoreSeal } from "@/components/HealthScoreSeal";
 
-// ============================================================
-// BACKEND API
-// Uses Vercel environment variable in production.
-// Falls back to your deployed Render backend.
-// ============================================================
-
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ||
   "https://saarthi-agent.onrender.com";
@@ -24,30 +18,27 @@ const API_URL =
 
 const blank: GrievanceDraft = {
   summary: null,
-  fullText: null,
   location: null,
-  department: null,
   dateOrTimeframe: null,
   desiredOutcome: null,
+  fullText: null,
 };
 
 // ============================================================
 // HEALTH SCORE FIELDS
 // ============================================================
 
-function captured(draft: GrievanceDraft): HealthField[] {
+function captured(
+  draft: GrievanceDraft
+): HealthField[] {
   const fields: HealthField[] = [];
 
   if (draft.summary) {
-    fields.push("issueDescribed");
+    fields.push("summary");
   }
 
   if (draft.location) {
     fields.push("location");
-  }
-
-  if (draft.department) {
-    fields.push("department");
   }
 
   if (draft.dateOrTimeframe) {
@@ -58,7 +49,10 @@ function captured(draft: GrievanceDraft): HealthField[] {
     fields.push("desiredOutcome");
   }
 
-  if (draft.fullText && draft.fullText.length > 100) {
+  if (
+    draft.fullText &&
+    draft.fullText.length > 100
+  ) {
     fields.push("supportingDetail");
   }
 
@@ -70,26 +64,36 @@ function captured(draft: GrievanceDraft): HealthField[] {
 // ============================================================
 
 export default function FilePage() {
-  const [history, setHistory] = useState<ChatTurn[]>([
-    {
-      role: "assistant",
-      content:
-        "Namaste! Main Saarthi hoon. Aap apni problem apne words mein bataiye. Hindi, English ya Hinglish mein bata sakte hain.",
-    },
-  ]);
+  // ----------------------------------------------------------
+  // CHAT HISTORY
+  // ----------------------------------------------------------
+
+  const [history, setHistory] =
+    useState<ChatTurn[]>([
+      {
+        role: "assistant",
+        content:
+          "Namaste! Main Saarthi hoon. Aap apni civic problem Hindi, English ya Hinglish mein bata sakte hain. Main zaroori details step by step collect karunga.",
+      },
+    ]);
+
+  // ----------------------------------------------------------
+  // STATE
+  // ----------------------------------------------------------
 
   const [text, setText] = useState("");
+
   const [draft, setDraft] =
     useState<GrievanceDraft>(blank);
 
   const [sessionId, setSessionId] =
     useState<string | null>(null);
 
-  const [registration, setRegistration] =
-    useState<string | null>(null);
-
   const [readinessScore, setReadinessScore] =
     useState(0);
+
+  const [registration, setRegistration] =
+    useState<string | null>(null);
 
   const [loading, setLoading] =
     useState(false);
@@ -100,28 +104,44 @@ export default function FilePage() {
   const [authority, setAuthority] =
     useState<string | null>(null);
 
+  // ----------------------------------------------------------
+  // HEALTH
+  // ----------------------------------------------------------
+
   const health = captured(draft);
 
+  // ----------------------------------------------------------
+  // READY FOR SUBMISSION
+  // Backend gives 100 when all 4 required fields are collected.
+  // ----------------------------------------------------------
+
   const ready = Boolean(
-    readinessScore >= 90 &&
-    draft.fullText &&
-    sessionId &&
-    !registration
+    readinessScore >= 100 &&
+      draft.summary &&
+      draft.location &&
+      draft.dateOrTimeframe
   );
 
   // ==========================================================
   // SEND CHAT MESSAGE
   // ==========================================================
 
-  const send = async (event: FormEvent) => {
+  const send = async (
+    event: FormEvent
+  ) => {
     event.preventDefault();
 
-    if (!text.trim() || loading || registration) {
+    if (
+      !text.trim() ||
+      loading ||
+      registration
+    ) {
       return;
     }
 
     const userMessage = text.trim();
 
+    // Add user message immediately
     setHistory((previous) => [
       ...previous,
       {
@@ -135,6 +155,10 @@ export default function FilePage() {
     setError("");
 
     try {
+      // ------------------------------------------------------
+      // CALL FASTAPI BACKEND
+      // ------------------------------------------------------
+
       const response = await fetch(
         `${API_URL}/api/saarthi`,
         {
@@ -145,55 +169,61 @@ export default function FilePage() {
           body: JSON.stringify({
             session_id: sessionId,
             message: userMessage,
-            preferred_language: "hinglish",
           }),
         }
       );
 
-      if (!response.ok) {
-        const errorData = await response
-          .json()
-          .catch(() => null);
+      const errorData =
+        !response.ok
+          ? await response
+              .json()
+              .catch(() => null)
+          : null;
 
+      if (!response.ok) {
         throw new Error(
           errorData?.detail ||
-          `Backend request failed (${response.status})`
+            `Backend request failed (${response.status})`
         );
       }
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
-      // Save session
+      // ------------------------------------------------------
+      // SAVE SESSION
+      // ------------------------------------------------------
+
       if (data.session_id) {
         setSessionId(data.session_id);
       }
 
-      // Save readiness score
+      // ------------------------------------------------------
+      // SAVE READINESS SCORE
+      // ------------------------------------------------------
+
       setReadinessScore(
         data.readiness_score || 0
       );
 
-      // Save authority
+      // ------------------------------------------------------
+      // SAVE AUTHORITY
+      // ------------------------------------------------------
+
       setAuthority(
         data.concerned_authority || null
       );
 
-      // Update case file
+      // ------------------------------------------------------
+      // UPDATE CASE FILE
+      // ------------------------------------------------------
+
       setDraft({
         summary:
           data.summary || null,
 
-        fullText:
-          data.grievance_draft || null,
-
         location:
           data.collected_information?.location ||
-          null,
-
-        department:
-          data.concerned_authority ||
-          data.problem_display ||
-          data.problem_type ||
           null,
 
         dateOrTimeframe:
@@ -201,11 +231,19 @@ export default function FilePage() {
           null,
 
         desiredOutcome:
-          data.collected_information?.desired_outcome ||
+          data.collected_information
+            ?.previous_complaint ||
+          null,
+
+        fullText:
+          data.grievance_draft ||
           null,
       });
 
-      // Show AI response
+      // ------------------------------------------------------
+      // SHOW BACKEND RESPONSE
+      // ------------------------------------------------------
+
       const assistantMessage =
         data.next_question ||
         data.next_action ||
@@ -221,13 +259,18 @@ export default function FilePage() {
           },
         ]);
       }
-
     } catch (err) {
-      console.error("Saarthi API error:", err);
-
-      setError(
-        "Saarthi server se connect nahi ho pa raha. Kripya thodi der baad dobara try karein."
+      console.error(
+        "Saarthi API error:",
+        err
       );
+
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Saarthi server se connect nahi ho pa raha. Kripya thodi der baad dobara try karein.";
+
+      setError(message);
 
       setHistory((previous) => [
         ...previous,
@@ -250,7 +293,8 @@ export default function FilePage() {
     if (
       !sessionId ||
       loading ||
-      !ready
+      !ready ||
+      registration
     ) {
       return;
     }
@@ -272,30 +316,44 @@ export default function FilePage() {
         }
       );
 
-      if (!response.ok) {
-        const errorData = await response
-          .json()
-          .catch(() => null);
+      const errorData =
+        !response.ok
+          ? await response
+              .json()
+              .catch(() => null)
+          : null;
 
+      if (!response.ok) {
         throw new Error(
           errorData?.detail ||
-          "Unable to submit grievance"
+            `Submission failed (${response.status})`
         );
       }
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
-      // Save tracking ID
+      // ------------------------------------------------------
+      // SAVE TRACKING ID
+      // ------------------------------------------------------
+
       setRegistration(
         data.grievance_id
       );
 
-      // Update authority if returned
+      // ------------------------------------------------------
+      // UPDATE AUTHORITY
+      // ------------------------------------------------------
+
       if (data.concerned_authority) {
         setAuthority(
           data.concerned_authority
         );
       }
+
+      // ------------------------------------------------------
+      // SHOW SUCCESS MESSAGE
+      // ------------------------------------------------------
 
       const successMessage =
         data.message ||
@@ -306,16 +364,19 @@ export default function FilePage() {
         ...previous,
         {
           role: "assistant",
-          content:
-            `${successMessage}\n\nTracking ID: ${data.grievance_id}`,
+          content: successMessage,
         },
       ]);
-
     } catch (err) {
-      console.error("Submit error:", err);
+      console.error(
+        "Submit error:",
+        err
+      );
 
       setError(
-        "Grievance submit nahi ho paayi. Kripya dobara try karein."
+        err instanceof Error
+          ? err.message
+          : "Grievance submit nahi ho paayi. Kripya dobara try karein."
       );
     } finally {
       setLoading(false);
@@ -329,9 +390,13 @@ export default function FilePage() {
   return (
     <section className="file-layout">
 
-      {/* LEFT SIDE — CHAT */}
+      {/* ====================================================
+          LEFT SIDE — CHAT
+      ==================================================== */}
 
       <div className="chat-panel">
+
+        {/* HEADER */}
 
         <div>
           <p className="eyebrow">
@@ -343,26 +408,30 @@ export default function FilePage() {
           </h1>
 
           <p className="chat-intro">
-            Describe your problem in Hindi, English, or Hinglish.
-            Saarthi will ask you for the required information
-            step by step.
+            Describe your problem in Hindi, English,
+            or Hinglish. Saarthi will ask you for the
+            required information step by step.
           </p>
         </div>
 
-        {/* CHAT MESSAGES */}
+        {/* ==================================================
+            CHAT MESSAGES
+        ================================================== */}
 
         <div
           className="messages"
           aria-live="polite"
         >
-          {history.map((turn, index) => (
-            <div
-              className={`bubble ${turn.role}`}
-              key={index}
-            >
-              {turn.content}
-            </div>
-          ))}
+          {history.map(
+            (turn, index) => (
+              <div
+                className={`bubble ${turn.role}`}
+                key={index}
+              >
+                {turn.content}
+              </div>
+            )
+          )}
 
           {loading && (
             <div className="bubble assistant">
@@ -371,7 +440,9 @@ export default function FilePage() {
           )}
         </div>
 
-        {/* CHAT INPUT */}
+        {/* ==================================================
+            CHAT INPUT
+        ================================================== */}
 
         <form
           className="message-form"
@@ -405,6 +476,8 @@ export default function FilePage() {
           </button>
         </form>
 
+        {/* ERROR */}
+
         {error && (
           <p
             style={{
@@ -414,15 +487,17 @@ export default function FilePage() {
             {error}
           </p>
         )}
-
       </div>
 
-      {/* RIGHT SIDE — CASE FILE */}
+      {/* ====================================================
+          RIGHT SIDE — CASE FILE
+      ==================================================== */}
 
       <aside className="draft-panel">
 
-        <div className="draft-header">
+        {/* HEADER */}
 
+        <div className="draft-header">
           <div>
             <p className="eyebrow">
               Your case file · not sent yet
@@ -436,10 +511,11 @@ export default function FilePage() {
           <HealthScoreSeal
             captured={health}
           />
-
         </div>
 
-        {/* READINESS SCORE */}
+        {/* ==================================================
+            READINESS SCORE
+        ================================================== */}
 
         <p
           style={{
@@ -447,15 +523,32 @@ export default function FilePage() {
           }}
         >
           Complaint readiness:{" "}
+
           <strong>
             {readinessScore}%
           </strong>
         </p>
 
-        {/* CASE DETAILS */}
+        {/* AUTHORITY */}
+
+        {authority && (
+          <p
+            style={{
+              marginBottom: "15px",
+            }}
+          >
+            <strong>
+              Concerned authority:
+            </strong>{" "}
+            {authority}
+          </p>
+        )}
+
+        {/* ==================================================
+            CASE DETAILS
+        ================================================== */}
 
         <dl className="draft-fields">
-
           {[
             [
               "Problem",
@@ -463,23 +556,17 @@ export default function FilePage() {
             ],
 
             [
-              "Concerned authority",
-              authority ||
-              draft.department,
-            ],
-
-            [
-              "Where it happened",
+              "Location",
               draft.location,
             ],
 
             [
-              "How long",
+              "Duration",
               draft.dateOrTimeframe,
             ],
 
             [
-              "What you need",
+              "Previous complaint",
               draft.desiredOutcome,
             ],
 
@@ -487,47 +574,45 @@ export default function FilePage() {
               "Draft grievance",
               draft.fullText,
             ],
-
-          ].map(([label, value]) => (
-
-            <div
-              className="draft-field"
-              key={label as string}
-            >
-              <dt>
-                {label}
-              </dt>
-
-              <dd
-                className={
-                  value
-                    ? ""
-                    : "empty"
-                }
+          ].map(
+            ([label, value]) => (
+              <div
+                className="draft-field"
+                key={label as string}
               >
-                {value ||
-                  "Saarthi will collect this information."}
-              </dd>
+                <dt>
+                  {label}
+                </dt>
 
-            </div>
-
-          ))}
-
+                <dd
+                  className={
+                    value
+                      ? ""
+                      : "empty"
+                  }
+                >
+                  {value ||
+                    "Saarthi will collect this information."}
+                </dd>
+              </div>
+            )
+          )}
         </dl>
 
-        {/* SUBMISSION SUCCESS */}
+        {/* ==================================================
+            SUBMISSION SUCCESS
+        ================================================== */}
 
         {registration ? (
-
           <div className="confirmation">
-
             <strong>
               Grievance submitted successfully
             </strong>
 
             <p>
-              Aapki complaint successfully submit ho gayi hai.
-              Is Tracking ID ko save kar lijiye.
+              Aapki complaint successfully submit ho
+              gayi hai. Is Tracking ID ko save kar
+              lijiye.
             </p>
 
             <p className="mono">
@@ -535,17 +620,18 @@ export default function FilePage() {
             </p>
 
             <p className="confirmation-note">
-              This is a demo record created by the Saarthi
-              prototype. It has not been submitted to a real
-              government grievance system.
+              This is a demo record created by the
+              Saarthi prototype. It has not been
+              submitted to a real government system.
             </p>
-
           </div>
-
         ) : (
 
-          <div className="submit-area">
+          /* ================================================
+              SUBMIT BUTTON
+          ================================================ */
 
+          <div className="submit-area">
             <button
               className="button ready"
               type="button"
@@ -565,13 +651,9 @@ export default function FilePage() {
                 ? "Your grievance is ready for submission."
                 : "Saarthi will enable submission when your complaint is ready."}
             </p>
-
           </div>
-
         )}
-
       </aside>
-
     </section>
   );
 }

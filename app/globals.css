@@ -172,3 +172,124 @@ body { font-family: var(--font-body); }
 @media (prefers-reduced-motion: reduce) {
   .seal .progress { transition: none; }
 }
+/* =========================================================
+   SAARTHI MOCK LOGIN / LOGOUT — HEADER
+========================================================= */
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.user-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.user-mobile {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 10px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: nowrap;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.login-button,
+.logout-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 8px 14px;
+  border: 1px solid currentColor;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    opacity 0.2s ease,
+    background 0.2s ease;
+}
+
+.login-button:hover,
+.logout-button:hover {
+  opacity: 0.75;
+}
+
+.login-button:focus-visible,
+.logout-button:focus-visible,
+.mobile-logout-button:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.mobile-logout-button {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mobile-logout-button:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+
+/* =========================================================
+   RESPONSIVE HEADER LOGIN / LOGOUT
+========================================================= */
+
+@media (max-width: 700px) {
+  .identity-row {
+    gap: 12px;
+  }
+
+  .header-actions {
+    gap: 8px;
+  }
+
+  .user-mobile {
+    display: none;
+  }
+
+  .login-button,
+  .logout-button {
+    min-height: 34px;
+    padding: 7px 11px;
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 520px) {
+  .identity-row {
+    align-items: flex-start;
+  }
+
+  .header-actions {
+    flex-shrink: 0;
+  }
+
+  .login-button,
+  .logout-button {
+    padding: 7px 10px;
+  }
+}
