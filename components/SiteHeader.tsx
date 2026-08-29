@@ -21,25 +21,98 @@ export function SiteHeader() {
   const [mobile, setMobile] = useState("");
   const [mounted, setMounted] = useState(false);
 
-  useEffect(() => {
-    const savedMobile = localStorage.getItem("saarthi_mobile");
+  const loadUser = () => {
+    try {
+      const savedMobile =
+        localStorage.getItem("saarthi_mobile");
 
-    if (savedMobile) {
-      setMobile(savedMobile);
+      const savedUser =
+        localStorage.getItem("saarthi_user");
+
+      if (savedMobile) {
+        setMobile(savedMobile);
+      } else if (savedUser) {
+        try {
+          const user = JSON.parse(savedUser);
+
+          if (user?.mobile) {
+            setMobile(user.mobile);
+
+            // Keep both auth keys synchronized.
+            localStorage.setItem(
+              "saarthi_mobile",
+              user.mobile
+            );
+          }
+        } catch {
+          // Invalid stored user data.
+          localStorage.removeItem("saarthi_user");
+          setMobile("");
+        }
+      } else {
+        setMobile("");
+      }
+    } catch (error) {
+      console.error(
+        "Unable to read login state:",
+        error
+      );
+
+      setMobile("");
     }
 
     setMounted(true);
+  };
+
+  useEffect(() => {
+    loadUser();
+
+    const handleAuthChange = () => {
+      loadUser();
+    };
+
+    window.addEventListener(
+      "saarthi-auth-change",
+      handleAuthChange
+    );
+
+    window.addEventListener(
+      "storage",
+      handleAuthChange
+    );
+
+    return () => {
+      window.removeEventListener(
+        "saarthi-auth-change",
+        handleAuthChange
+      );
+
+      window.removeEventListener(
+        "storage",
+        handleAuthChange
+      );
+    };
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem("saarthi_mobile");
-    localStorage.removeItem("saarthi_user");
+    try {
+      localStorage.removeItem("saarthi_mobile");
+      localStorage.removeItem("saarthi_user");
+    } catch (error) {
+      console.error(
+        "Logout storage error:",
+        error
+      );
+    }
 
     setMobile("");
     setIsMenuOpen(false);
 
-    router.push("/");
-    router.refresh();
+    window.dispatchEvent(
+      new Event("saarthi-auth-change")
+    );
+
+    window.location.href = "/";
   };
 
   return (
@@ -47,6 +120,7 @@ export function SiteHeader() {
       <div className="site-header-inner">
 
         <div className="identity-row">
+
           <div className="department-context">
             <GovernmentContextMark />
 
@@ -63,10 +137,12 @@ export function SiteHeader() {
           </div>
 
           <div className="header-actions">
+
             <LanguagePicker />
 
             {mounted && mobile ? (
               <div className="user-actions">
+
                 <span className="user-mobile">
                   {mobile}
                 </span>
@@ -78,6 +154,7 @@ export function SiteHeader() {
                 >
                   Logout
                 </button>
+
               </div>
             ) : (
               <Link
@@ -87,16 +164,20 @@ export function SiteHeader() {
                 Login
               </Link>
             )}
+
           </div>
+
         </div>
 
         <nav
           aria-label="Main navigation"
           className="main-nav"
         >
+
           <div className="brand-group">
 
             <div className="page-menu">
+
               <button
                 className="menu-trigger"
                 type="button"
@@ -106,6 +187,7 @@ export function SiteHeader() {
                   setIsMenuOpen(!isMenuOpen)
                 }
               >
+
                 <span
                   className="menu-dots"
                   aria-hidden="true"
@@ -118,6 +200,7 @@ export function SiteHeader() {
                 <span>
                   Pages
                 </span>
+
               </button>
 
               {isMenuOpen && (
@@ -127,6 +210,7 @@ export function SiteHeader() {
                   role="menu"
                   aria-label="Choose a page"
                 >
+
                   {links.map(([href, label]) => (
                     <Link
                       role="menuitem"
@@ -169,8 +253,10 @@ export function SiteHeader() {
                       Login
                     </Link>
                   )}
+
                 </div>
               )}
+
             </div>
 
             <Link
@@ -180,9 +266,11 @@ export function SiteHeader() {
               Saarthi
               <span>·</span>
             </Link>
+
           </div>
 
           <div className="nav-links">
+
             {links.map(([href, label]) => (
               <Link
                 aria-current={
@@ -201,7 +289,9 @@ export function SiteHeader() {
                 {label}
               </Link>
             ))}
+
           </div>
+
         </nav>
 
       </div>
