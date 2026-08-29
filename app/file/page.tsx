@@ -18,6 +18,7 @@ const API_URL =
 
 const blank: GrievanceDraft = {
   summary: null,
+  department: null,
   location: null,
   dateOrTimeframe: null,
   desiredOutcome: null,
@@ -32,10 +33,6 @@ function captured(
   draft: GrievanceDraft
 ): HealthField[] {
   const fields: HealthField[] = [];
-
-  if (draft.summary) {
-    fields.push("summary");
-  }
 
   if (draft.location) {
     fields.push("location");
@@ -218,27 +215,30 @@ export default function FilePage() {
       // UPDATE CASE FILE
       // ------------------------------------------------------
 
-      setDraft({
-        summary:
-          data.summary || null,
+     setDraft({
+  summary:
+    data.summary || null,
 
-        location:
-          data.collected_information?.location ||
-          null,
+  department:
+    data.concerned_authority || null,
 
-        dateOrTimeframe:
-          data.collected_information?.duration ||
-          null,
+  location:
+    data.collected_information?.location ||
+    null,
 
-        desiredOutcome:
-          data.collected_information
-            ?.previous_complaint ||
-          null,
+  dateOrTimeframe:
+    data.collected_information?.duration ||
+    null,
 
-        fullText:
-          data.grievance_draft ||
-          null,
-      });
+  desiredOutcome:
+    data.collected_information
+      ?.previous_complaint ||
+    null,
+
+  fullText:
+    data.grievance_draft ||
+    null,
+});
 
       // ------------------------------------------------------
       // SHOW BACKEND RESPONSE
