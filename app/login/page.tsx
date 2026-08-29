@@ -1,6 +1,11 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import {
+  FormEvent,
+  useEffect,
+  useState,
+} from "react";
+
 import { useRouter } from "next/navigation";
 
 const MOCK_OTP = "123456";
@@ -10,24 +15,37 @@ export default function LoginPage() {
 
   const [mobile, setMobile] = useState("");
   const [otp, setOtp] = useState("");
-  const [step, setStep] = useState<"mobile" | "otp">("mobile");
+
+  const [step, setStep] =
+    useState<"mobile" | "otp">("mobile");
+
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const existingUser = localStorage.getItem("saarthi_user");
+    const existingUser =
+      localStorage.getItem("saarthi_user");
 
-    if (existingUser) {
+    const existingMobile =
+      localStorage.getItem("saarthi_mobile");
+
+    if (existingUser || existingMobile) {
       router.replace("/");
     }
   }, [router]);
 
-  const sendOtp = (event: FormEvent) => {
+  const sendOtp = (
+    event: FormEvent
+  ) => {
     event.preventDefault();
 
-    const cleanMobile = mobile.replace(/\D/g, "");
+    const cleanMobile =
+      mobile.replace(/\D/g, "");
 
     if (cleanMobile.length !== 10) {
-      setError("Please enter a valid 10-digit mobile number.");
+      setError(
+        "Please enter a valid 10-digit mobile number."
+      );
+
       return;
     }
 
@@ -36,35 +54,56 @@ export default function LoginPage() {
     setStep("otp");
   };
 
-  const verifyOtp = (event: FormEvent) => {
+  const verifyOtp = (
+    event: FormEvent
+  ) => {
     event.preventDefault();
 
     if (otp !== MOCK_OTP) {
-      setError("Invalid OTP. For this demo, use 123456.");
+      setError(
+        "Invalid OTP. For this demo, use 123456."
+      );
+
       return;
     }
 
+    const cleanMobile =
+      mobile.replace(/\D/g, "");
+
     const user = {
-      mobile,
-      name: `Citizen ${mobile.slice(-4)}`,
+      mobile: cleanMobile,
+      name: `Citizen ${cleanMobile.slice(-4)}`,
       loggedIn: true,
     };
+
+    // IMPORTANT:
+    // Save both keys because SiteHeader
+    // uses saarthi_mobile and saarthi_user.
+    localStorage.setItem(
+      "saarthi_mobile",
+      cleanMobile
+    );
 
     localStorage.setItem(
       "saarthi_user",
       JSON.stringify(user)
     );
 
+    // Tell SiteHeader immediately
+    // that authentication changed.
     window.dispatchEvent(
       new Event("saarthi-auth-change")
     );
 
     router.push("/");
+    router.refresh();
   };
 
   return (
     <section className="page auth-page">
+
       <div className="auth-card">
+
         <p className="eyebrow">
           Welcome to Saarthi
         </p>
@@ -82,7 +121,9 @@ export default function LoginPage() {
         </p>
 
         {step === "mobile" ? (
+
           <form onSubmit={sendOtp}>
+
             <label htmlFor="mobile">
               Mobile number
             </label>
@@ -94,8 +135,12 @@ export default function LoginPage() {
               value={mobile}
               onChange={(event) => {
                 setMobile(
-                  event.target.value.replace(/\D/g, "")
+                  event.target.value.replace(
+                    /\D/g,
+                    ""
+                  )
                 );
+
                 setError("");
               }}
               placeholder="9876543210"
@@ -115,9 +160,13 @@ export default function LoginPage() {
             >
               Continue
             </button>
+
           </form>
+
         ) : (
+
           <form onSubmit={verifyOtp}>
+
             <label htmlFor="otp">
               Enter OTP
             </label>
@@ -129,8 +178,12 @@ export default function LoginPage() {
               value={otp}
               onChange={(event) => {
                 setOtp(
-                  event.target.value.replace(/\D/g, "")
+                  event.target.value.replace(
+                    /\D/g,
+                    ""
+                  )
                 );
+
                 setError("");
               }}
               placeholder="123456"
@@ -139,7 +192,10 @@ export default function LoginPage() {
             />
 
             <p className="demo-otp">
-              Demo OTP: <strong>123456</strong>
+              Demo OTP:{" "}
+              <strong>
+                123456
+              </strong>
             </p>
 
             {error && (
@@ -166,14 +222,18 @@ export default function LoginPage() {
             >
               Change mobile number
             </button>
+
           </form>
+
         )}
 
         <p className="auth-note">
           Prototype authentication for demonstration.
           No real OTP is sent.
         </p>
+
       </div>
+
     </section>
   );
 }
